@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f7f8f3">
-  <meta name="description" content="공강 시간에 맞는 운동을 비교하고 한 끼와 함께 저장하는 덜지침 플래너">
-  <title>덜지침 | 운동과 한 끼 플래너</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%230e6856'/%3E%3Cpath fill='%23ddf692' d='M8 30 20 12h7L15 30zm10 6 16-24h7L25 36z'/%3E%3C/svg%3E">
+  <meta name="description" content="공강다이어트에서 장소와 기구에 맞는 운동을 고르고 한 끼의 열량을 계산해 함께 계획하세요.">
+  <title>공강다이어트 | 운동과 한 끼 플래너</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20viewBox%3D%220%200%2048%2048%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2246%22%20height%3D%2246%22%20rx%3D%2214%22%20fill%3D%22%230A6556%22%2F%3E%3Cg%20transform%3D%22rotate(-32%2024%2024)%22%20fill%3D%22none%22%20stroke%3D%22%23DFF79B%22%20stroke-width%3D%222.8%22%3E%3Crect%20x%3D%228%22%20y%3D%2214%22%20width%3D%2232%22%20height%3D%2220%22%20rx%3D%2210%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%2219%22%20width%3D%2222%22%20height%3D%2210%22%20rx%3D%225%22%2F%3E%3C%2Fg%3E%3Cpath%20d%3D%22m27%2010%2011-3-3%2011-2-5z%22%20fill%3D%22%23FFAC69%22%2F%3E%3C%2Fsvg%3E">
   <link rel="stylesheet" href="style.css">
   <script defer src="model.js"></script><script defer src="app.js"></script>
 </head>
 <body>
   <a href="#main" class="skip">본문으로 이동</a>
   <header class="topbar"><div class="header-inner">
-    <a class="brand" href="#planner" aria-label="덜지침 홈"><svg viewBox="0 0 44 44" aria-hidden="true"><rect width="44" height="44" rx="13" fill="#096953"/><path d="m7 26 11-16h6L13 26zm8 7 15-23h7L22 33z" fill="#ddf49a"/></svg><span>덜지침</span></a>
-    <nav aria-label="주 메뉴"><a href="#planner" data-page="planner"><i data-icon="layout"></i>오늘의 플래너</a><a href="#plans" data-page="plans"><i data-icon="calendar"></i>내 계획표</a><a href="#favorites" data-page="favorites"><i data-icon="heart"></i>선호 운동</a></nav>
+    <a class="brand" href="#planner" aria-label="공강다이어트 홈"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="14" fill="#0A6556"/><g transform="rotate(-32 24 24)" fill="none" stroke="#DFF79B" stroke-width="2.8"><rect x="8" y="14" width="32" height="20" rx="10"/><rect x="13" y="19" width="22" height="10" rx="5"/></g><path d="m27 10 11-3-3 11-2-5z" fill="#FFAC69"/></svg><span class="wordmark"><b>공강</b>다이어트</span></a>
+    <nav aria-label="주 메뉴"><a href="#planner" data-page="planner"><i data-icon="layout"></i>오늘의 플래너</a><a href="#meals" data-page="meals"><i data-icon="meal"></i>한 끼 계산기</a><a href="#plans" data-page="plans"><i data-icon="calendar"></i>내 계획표</a><a href="#favorites" data-page="favorites"><i data-icon="heart"></i>선호 운동</a></nav>
     <div class="header-end"><span id="today"></span><span class="header-line"></span><button class="icon-btn" id="theme" aria-label="다크 모드 켜기"></button></div>
   </div></header>
   <main id="main" tabindex="-1">
@@ -29,23 +29,30 @@
         <section class="time-card panel" aria-labelledby="time-title"><div class="box-title"><span class="tint-icon"><i data-icon="timer"></i></span><h2 id="time-title">시간 보드</h2><button class="icon-btn small" id="set-time" aria-label="가능 시간 및 운동 시간 조절"><i data-icon="pencil"></i></button></div>
           <div class="budget-body"><div class="ring"><div class="ring-center"><span>가능 시간</span><strong><b id="budget-num">30</b><small>분</small></strong></div></div>
           <div class="legend"><div><span class="dot booked"></span><span>운동 시간</span><strong id="used-time">20분</strong></div><div><span class="dot spare"></span><span>남은 시간</span><strong id="free-time">10분</strong></div></div></div>
-          <div class="budget-foot"><i data-icon="activity"></i><span id="board-exercise">빠르게 걷기 선택 중</span></div>
+          <div class="budget-foot"><i data-icon="activity"></i><span id="board-exercise"></span><button id="board-save" class="board-save">계획 작성</button></div>
         </section>
       </div>
       <section class="explore" aria-labelledby="explore-title">
         <div class="section-heading"><div><div class="section-kicker"><span></span>WORKOUT PICKS</div><h2 id="explore-title">맞춤 운동 <span id="count" class="count"></span></h2></div><button class="secondary compact" id="filter-btn"><i data-icon="filter"></i>필터 설정</button></div>
-        <div class="filters-row"><div class="chips" id="filters"></div><div class="balance"><label for="balance"><i data-icon="heart"></i>선호 우선</label><input id="balance" type="range" min="0" max="100" step="1" value="0" aria-label="운동 정렬 기준, 선호 우선에서 소모량 우선까지"><span><i data-icon="flame"></i>소모량 우선</span></div></div>
+        <div class="library-controls"><div id="filters" class="facets"></div><div class="balance"><label for="balance"><i data-icon="heart"></i>선호 우선</label><input id="balance" type="range" min="0" max="100" step="1" value="0" aria-label="운동 정렬 기준, 선호 우선에서 소모량 우선까지"><span><i data-icon="flame"></i>소모량 우선</span></div></div>
         <div id="cards" class="card-grid"></div>
+        <button id="show-more" class="secondary more" hidden></button>
       </section>
       <section class="plan-editor panel" id="plan-editor" aria-labelledby="editor-title"><div class="editor-heading"><span class="tint-icon"><i data-icon="clipboard"></i></span><h2 id="editor-title">운동과 한 끼 계획</h2></div>
         <div class="editor-summary"><div><span class="label">선택한 운동</span><strong id="edit-name"></strong></div><div><span class="label">운동 시간</span><button class="value-button" id="edit-minutes"></button></div><div><span class="label">예상 소모량</span><button class="value-button" id="edit-weight"></button></div><button class="primary" id="next"><i data-icon="calendar"></i>계획 완성하기</button></div>
+        <div class="meal-shortcut"><span id="draft-meal"></span><a href="#meals">한 끼 계산기 열기</a></div>
         <details class="calculation"><summary>칼로리 계산 기준</summary><div id="calc-note"></div></details>
       </section>
     </div>
+    <section id="meals-page" hidden aria-labelledby="meals-title">
+      <div class="meal-hero"><div><div class="section-kicker"><span></span>MEAL PLANNER</div><h1 id="meals-title">한 끼 칼로리 계산기</h1><p>메뉴와 먹을 양을 고르면 예상 섭취 열량을 바로 확인할 수 있어요.</p></div></div>
+      <div class="meal-layout"><section class="panel menu-picker" aria-labelledby="menu-title"><h2 id="menu-title">메뉴 고르기</h2><div id="food-groups" class="menu-tabs" role="group" aria-label="식사 장소"></div><div id="food-cards" class="menu-list"></div></section>
+      <section class="panel calculator" aria-labelledby="recipe-title"><div class="section-kicker"><span></span>한 끼 구성</div><h2 id="recipe-title"></h2><p class="unit-note" id="recipe-unit"></p><div id="meal-calculation"></div><button id="use-meal" class="primary"><i data-icon="plus"></i>이 한 끼를 계획에 담기</button></section></div>
+    </section>
     <section id="plans-page" hidden aria-labelledby="plans-title"><div class="page-heading"><div class="section-kicker"><span></span>MY SCHEDULE</div><h1 id="plans-title">내 계획표</h1><p>이 브라우저에 저장한 운동과 한 끼를 확인해요.</p></div><div id="schedule"></div></section>
     <section id="favorites-page" hidden aria-labelledby="favorites-title"><div class="page-heading"><div class="section-kicker"><span></span>FAVORITE WORKOUTS</div><h1 id="favorites-title">선호 운동</h1><p>하트를 누른 운동은 선호 우선으로 정렬할 때 먼저 보여요.</p></div><div class="card-grid" id="favorite-cards"></div></section>
   </main>
-  <footer><div><span class="footer-mark" aria-hidden="true">❯❯</span><b>덜지침</b><span>운동과 한 끼 플래너</span></div><span><i data-icon="device"></i>이 기기에 저장</span></footer>
+  <footer><div><span class="footer-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="1" y="1" width="46" height="46" rx="14" fill="#0A6556"/><g transform="rotate(-32 24 24)" fill="none" stroke="#DFF79B" stroke-width="2.8"><rect x="8" y="14" width="32" height="20" rx="10"/><rect x="13" y="19" width="22" height="10" rx="5"/></g><path d="m27 10 11-3-3 11-2-5z" fill="#FFAC69"/></svg></span><b>공강다이어트</b><span>운동과 한 끼 플래너</span></div><span><i data-icon="device"></i>이 기기에 저장</span></footer>
   <dialog id="modal" aria-labelledby="modal-title"><div class="modal-head"><h2 id="modal-title"></h2><button id="modal-close" class="icon-btn" aria-label="닫기"><i data-icon="x"></i></button></div><div id="modal-content"></div></dialog>
   <div id="toast" role="status"></div>
 </body>

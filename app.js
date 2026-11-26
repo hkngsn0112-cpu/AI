@@ -44,6 +44,10 @@
   document
     .querySelectorAll("[data-icon]")
     .forEach((el) => (el.innerHTML = icon(el.dataset.icon)));
+  document
+    .querySelector(".meal-hero")
+    .style.setProperty("--meal-photo", 'url("' + asset("sandwich") + '")');
+  // Keep the storage keys stable when an existing installation receives the new branding.
   const keys = {
     plans: "deoljichim.plans.v1",
     favorites: "deoljichim.favorites.v1",
@@ -105,14 +109,19 @@
     minutes: 20,
     weight: null,
     place: "all",
-    gear: "none",
-    level: 0,
+    gear: "all",
+    level: 1,
     balance: 0,
-    selected: "walk",
+    selected: "campus-run",
     date: localDate(),
     time: "18:00",
     meal: "skip",
+    foodId: null,
+    servings: 1,
   };
+  const foodDraft = { id: "chicken-sandwich", servings: 1 };
+  const batchSize = 6;
+  let visibleCount = batchSize;
   let toastTimer;
   function notify(message) {
     clearTimeout(toastTimer);
@@ -148,7 +157,9 @@
       '" alt=""><span class="type ' +
       w.tone +
       '">' +
-      icon(w.type === "유산소" ? "activity" : "leaf") +
+      icon(
+        w.type === "근력" ? "gear" : w.type === "유산소" ? "activity" : "leaf",
+      ) +
       w.tag +
       '</span><button class="fav-btn" data-fav="' +
       w.id +
@@ -160,7 +171,11 @@
       icon("heart") +
       '</button></div><div class="card-content"><h3>' +
       w.name +
-      "</h3><p>" +
+      '</h3><span class="gear-caption">' +
+      M.gears[w.gear] +
+      " · " +
+      (w.level ? "경험자" : "입문") +
+      "</span><p>" +
       w.note +
       '</p><div class="metrics"><span>' +
       icon("clock") +
@@ -201,7 +216,10 @@
       duration = w ? state.minutes : 0,
       remaining = state.budget - duration;
     $("cards").innerHTML =
-      pool.map((w) => card(w)).join("") ||
+      pool
+        .slice(0, visibleCount)
+        .map((w) => card(w))
+        .join("") ||
       empty(
         "filter",
         "가능한 운동이 없어요",
@@ -210,19 +228,51 @@
         "conditions",
       );
     $("count").textContent = pool.length + "개";
+    $("show-more").hidden = pool.length <= visibleCount;
+    $("show-more").textContent =
+      "운동 더 보기 (" +
+      Math.min(visibleCount, pool.length) +
+      "/" +
+      pool.length +
+      ")";
     $("filters").innerHTML = [
-      ["pin", M.places[state.place]],
-      ["gear", M.gears[state.gear]],
-      ["level", M.levels[state.level]],
+      ["place", "장소", "pin", M.places],
+      ["gear", "기구", "gear", M.gears],
     ]
       .map(
-        ([i, t]) =>
-          '<button class="chip" data-action="conditions">' +
-          icon(i) +
-          t +
-          "</button>",
+        ([key, label, symbol, choices]) =>
+          '<div class="facet" role="group" aria-label="운동 ' +
+          label +
+          '"><b>' +
+          icon(symbol) +
+          label +
+          "</b><div>" +
+          Object.entries(choices)
+            .map(
+              ([value, name]) =>
+                '<button class="facet-chip" data-facet="' +
+                key +
+                '" data-choice="' +
+                value +
+                '" aria-pressed="' +
+                (state[key] === value) +
+                '">' +
+                name +
+                "</button>",
+            )
+            .join("") +
+          "</div></div>",
       )
       .join("");
+    const selectedFood = M.recipeById(state.foodId);
+    $("draft-meal").textContent = selectedFood
+      ? selectedFood.name +
+        " · " +
+        state.servings +
+        "인분 · 섭취 " +
+        M.mealCalories(selectedFood, state.servings) +
+        " kcal (추정)"
+      : "함께 계획할 한 끼를 골라 보세요.";
     $("hero-min").textContent = state.budget + "분";
     $("budget-num").textContent = state.budget;
     $("used-time").textContent = duration + "분";
@@ -237,6 +287,7 @@
     $("board-exercise").textContent = w
       ? w.name + " 선택 중"
       : "운동을 선택해 주세요";
+    $("board-save").disabled = !w;
     $("plan-editor").hidden = !w;
     if (w) {
       $("edit-name").textContent = w.name;
@@ -293,7 +344,21 @@
     $("schedule").innerHTML = plans
       .map((p) => {
         const w = M.byId(p.workout),
-          meal = M.meals[p.meal];
+          meal = M.meals[p.meal],
+          recipe = M.recipeById(p.foodId);
+        const foodLine =
+          recipe && Number.isFinite(p.servings) && Number.isFinite(p.foodKcal)
+            ? meal.name +
+              " · " +
+              recipe.name +
+              " · " +
+              p.servings +
+              "인분 · 섭취 " +
+              p.foodKcal +
+              " kcal (추정)"
+            : meal.menu
+              ? meal.name + " · " + meal.menu
+              : "식사 건너뜀";
         const heading =
           p.date !== date
             ? '<h2 class="date-title">' +
@@ -314,9 +379,11 @@
           " · " +
           p.minutes +
           "분</h3><p>" +
-          (meal.menu ? meal.name + " · " + meal.menu : "식사 건너뜀") +
+          foodLine +
           '</p></div><span class="schedule-meta">' +
-          (Number.isFinite(p.kcal) ? p.kcal + " kcal (추정)" : "") +
+          (Number.isFinite(p.kcal)
+            ? "운동 소모 " + p.kcal + " kcal (추정)"
+            : "") +
           '</span><button class="icon-btn" data-remove="' +
           p.id +
           '" aria-label="' +
@@ -331,10 +398,12 @@
       .join("");
   }
   function route() {
-    const page = ["plans", "favorites"].includes(location.hash.slice(1))
+    const page = ["plans", "favorites", "meals"].includes(
+      location.hash.slice(1),
+    )
       ? location.hash.slice(1)
       : "planner";
-    ["planner", "plans", "favorites"].forEach(
+    ["planner", "plans", "favorites", "meals"].forEach(
       (key) => ($(key + "-page").hidden = key !== page),
     );
     document.querySelectorAll("[data-page]").forEach((a) => {
@@ -342,6 +411,7 @@
       else a.removeAttribute("aria-current");
     });
     render();
+    if (page === "meals") renderFoods();
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", route);
@@ -417,7 +487,7 @@
         numberField("budget", "가능 시간 (분)", state.budget, 1, 240) +
         '<div class="twocol"><label class="field">운동 장소<select name="place">' +
         options(M.places, state.place) +
-        '</select></label><label class="field">사용 가능한 기구<select name="gear">' +
+        '</select></label><label class="field">운동 기구<select name="gear">' +
         options(M.gears, state.gear) +
         '</select></label></div><label class="field">운동 경험<select name="level">' +
         options(M.levels, state.level) +
@@ -445,6 +515,7 @@
         level: +f.level.value,
         weight: f.weight.value ? +f.weight.value : null,
       });
+      visibleCount = batchSize;
       render();
       if (state.selected && state.minutes > state.budget) {
         timeEditor();
@@ -519,6 +590,110 @@
     };
     if (focusWeight) f.weight.focus();
   }
+  const servingOptions = (selected) =>
+    [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4]
+      .map(
+        (n) =>
+          '<option value="' +
+          n +
+          '"' +
+          (n === selected ? " selected" : "") +
+          ">" +
+          n +
+          "인분</option>",
+      )
+      .join("");
+  function ingredientList(recipe, servings) {
+    return Object.entries(recipe.grams)
+      .map(([id, grams]) => {
+        const ingredient = M.ingredients[id];
+        return (
+          "<li><span>" +
+          ingredient.name +
+          "</span><b>" +
+          Number((grams * servings).toFixed(2)) +
+          " g</b></li>"
+        );
+      })
+      .join("");
+  }
+  function renderFoods() {
+    const recipe = M.recipeById(foodDraft.id);
+    const group = recipe.meal;
+    $("food-groups").innerHTML = ["store", "cafeteria", "home"]
+      .map(
+        (key) =>
+          '<button class="facet-chip" data-food-group="' +
+          key +
+          '" aria-pressed="' +
+          (key === group) +
+          '">' +
+          M.meals[key].name +
+          "</button>",
+      )
+      .join("");
+    $("food-cards").innerHTML = M.recipes
+      .filter((r) => r.meal === group)
+      .map((r) => {
+        const chosen = r.id === recipe.id;
+        const photo = {
+          "chicken-sandwich": "sandwich",
+          "chicken-bowl": "ricebowl",
+          "yogurt-bowl": "yogurt",
+        }[r.id];
+        const thumb = photo
+          ? '<img alt="" src="' + asset(photo) + '">'
+          : icon("meal");
+        return (
+          '<button class="menu-choice" data-food="' +
+          r.id +
+          '" aria-pressed="' +
+          chosen +
+          '"><span class="food-thumb">' +
+          thumb +
+          "</span><span><b>" +
+          r.name +
+          "</b><small>1인분 · " +
+          M.mealCalories(r) +
+          ' kcal (추정)</small></span><span class="food-radio">' +
+          (chosen ? icon("check") : "") +
+          "</span></button>"
+        );
+      })
+      .join("");
+    $("recipe-title").textContent = recipe.name;
+    $("recipe-unit").textContent = "1인분 기준 · " + recipe.unit;
+    $("meal-calculation").innerHTML =
+      '<div class="food-energy"><label for="food-amount">먹을 양<select id="food-amount">' +
+      servingOptions(foodDraft.servings) +
+      '</select></label><div><small>예상 섭취 열량</small><strong id="food-total" aria-live="polite"></strong></div></div><h3>재료와 분량</h3><ul id="ingredient-list" class="ingredient-list"></ul><details class="calculation"><summary>열량 계산 기준</summary><p>재료별 100 g당 열량에 먹을 무게를 곱해 합산한 뒤 정수로 반올림해요. 실제 제품과 조리법에 따라 달라질 수 있어요.</p><p>USDA FoodData Central · SR Legacy</p><ul class="food-sources">' +
+      Object.keys(recipe.grams)
+        .map((id) => {
+          const item = M.ingredients[id];
+          return (
+            '<li><a target="_blank" rel="noopener" href="https://fdc.nal.usda.gov/food-details/' +
+            item.fdcId +
+            '/nutrients">' +
+            item.name +
+            "</a> · " +
+            item.kcal100 +
+            " kcal/100 g</li>"
+          );
+        })
+        .join("") +
+      "</ul></details>";
+    function refreshAmount() {
+      foodDraft.servings = Number($("food-amount").value);
+      $("food-total").textContent =
+        M.mealCalories(recipe, foodDraft.servings) + " kcal";
+      $("ingredient-list").innerHTML = ingredientList(
+        recipe,
+        foodDraft.servings,
+      );
+    }
+    $("food-amount").onchange = refreshAmount;
+    refreshAmount();
+  }
   function planForm() {
     if (state.minutes > state.budget) {
       timeEditor();
@@ -547,7 +722,9 @@
               "</span></label>",
           )
           .join("") +
-        '</div></fieldset><p id="meal-example" class="meal-note"></p><div class="twocol"><label class="field">운동 날짜<input required type="date" name="date" min="1900-01-01" max="9999-12-31" value="' +
+        '</div></fieldset><div id="save-food-fields" class="save-food-fields"><label class="field">메뉴<select name="food"></select></label><label class="field">먹을 양<select name="servings">' +
+        servingOptions(state.servings) +
+        '</select></label></div><p id="meal-example" class="meal-note" aria-live="polite"></p><div class="twocol"><label class="field">운동 날짜<input required type="date" name="date" min="1900-01-01" max="9999-12-31" value="' +
         state.date +
         '"></label><label class="field">시작 시각<input required type="time" step="60" name="time" value="' +
         state.time +
@@ -557,18 +734,34 @@
     );
     const form = $("save-plan"),
       f = form.elements;
+    function setMenu(preferred) {
+      const group = f.meal.value;
+      const available = M.recipes.filter((r) => r.meal === group);
+      f.food.innerHTML = options(
+        Object.fromEntries(available.map((r) => [r.id, r.name])),
+        preferred,
+      );
+      $("save-food-fields").hidden = !available.length;
+    }
+    setMenu(state.foodId);
     const sync = () => {
-      state.meal = f.meal.value;
-      state.date = f.date.value;
-      state.time = f.time.value;
-      $("meal-example").textContent =
-        M.meals[state.meal].menu || "운동 일정만 저장해요.";
-      $("end-time").textContent = state.time
-        ? "종료 예정 " + M.endLabel(state.time, state.minutes)
+      const recipe = M.recipeById(f.food.value);
+      $("meal-example").textContent = recipe
+        ? "섭취 " +
+          M.mealCalories(recipe, Number(f.servings.value)) +
+          " kcal (추정) · " +
+          f.servings.value +
+          "인분"
+        : "운동 일정만 저장해요.";
+      $("end-time").textContent = f.time.value
+        ? "종료 예정 " + M.endLabel(f.time.value, state.minutes)
         : "";
       $("form-error").textContent = "";
     };
-    form.oninput = sync;
+    form.oninput = (e) => {
+      if (e.target.name === "meal") setMenu(state.foodId);
+      sync();
+    };
     sync();
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -576,15 +769,21 @@
       const submit = form.querySelector("[type=submit]");
       if (submit.disabled) return;
       submit.disabled = true;
+      const recipe = M.recipeById(f.food.value);
       const p = {
         id:
           globalThis.crypto?.randomUUID?.() ||
           Date.now().toString(36) + "-" + Math.random().toString(36).slice(2),
         workout: w.id,
-        date: state.date,
-        time: state.time,
+        date: f.date.value,
+        time: f.time.value,
         minutes: state.minutes,
-        meal: state.meal,
+        meal: f.meal.value,
+        foodId: recipe?.id ?? null,
+        servings: recipe ? Number(f.servings.value) : null,
+        foodKcal: recipe
+          ? M.mealCalories(recipe, Number(f.servings.value))
+          : null,
         kcal: M.calories(w.met, state.weight, state.minutes),
       };
       const save = () => {
@@ -607,6 +806,15 @@
             "저장 공간을 확인하고 다시 시도해 주세요.";
           return;
         }
+        Object.assign(state, {
+          date: p.date,
+          time: p.time,
+          meal: p.meal,
+          foodId: p.foodId,
+          servings: p.servings ?? 1,
+        });
+        if (recipe)
+          Object.assign(foodDraft, { id: p.foodId, servings: p.servings });
         modal.close();
         location.hash = "plans";
         render();
@@ -657,6 +865,32 @@
     const b = e.target.closest("button");
     if (!b) return;
     if (b.hasAttribute("data-close")) modal.close();
+    if (b.dataset.facet) {
+      const key = b.dataset.facet,
+        value = b.dataset.choice;
+      state[key] = value;
+      visibleCount = batchSize;
+      render();
+      document
+        .querySelector(
+          '[data-facet="' + key + '"][data-choice="' + value + '"]',
+        )
+        ?.focus({ preventScroll: true });
+    }
+    if (b.dataset.foodGroup || b.dataset.food) {
+      const group = b.dataset.foodGroup;
+      foodDraft.id = group
+        ? M.recipes.find((r) => r.meal === group).id
+        : b.dataset.food;
+      renderFoods();
+      document
+        .querySelector(
+          group
+            ? '[data-food-group="' + group + '"]'
+            : '[data-food="' + foodDraft.id + '"]',
+        )
+        ?.focus({ preventScroll: true });
+    }
     if (b.dataset.fav) {
       const id = b.dataset.fav,
         list = favorites(),
@@ -682,11 +916,16 @@
       if (location.hash === "#favorites") {
         if (state.place !== "all" && !w.places.includes(state.place))
           state.place = w.places[0];
-        if (w.gear !== "none") state.gear = w.gear;
+        if (state.gear !== "all") state.gear = w.gear;
         state.level = Math.max(w.level, state.level);
         location.hash = "planner";
       }
       state.selected = w.id;
+      const rank = M.candidates(state, favorites(), state.balance).findIndex(
+        (item) => item.id === w.id,
+      );
+      if (rank >= visibleCount)
+        visibleCount = Math.ceil((rank + 1) / batchSize) * batchSize;
       render();
       document
         .querySelector('#cards [data-select="' + w.id + '"]')
@@ -704,8 +943,28 @@
   $("edit-weight").onclick = () => timeEditor(true);
   $("balance").oninput = (e) => {
     state.balance = +e.target.value;
+    visibleCount = batchSize;
     render();
   };
   $("next").onclick = planForm;
+  $("board-save").onclick = planForm;
+  $("show-more").onclick = () => {
+    const firstNew = visibleCount;
+    visibleCount += batchSize;
+    render();
+    $("cards")
+      .querySelectorAll(".select-work")
+      [firstNew]?.focus({ preventScroll: true });
+  };
+  $("use-meal").onclick = () => {
+    const recipe = M.recipeById(foodDraft.id);
+    Object.assign(state, {
+      meal: recipe.meal,
+      foodId: recipe.id,
+      servings: foodDraft.servings,
+    });
+    location.hash = "planner";
+    notify(recipe.name + " " + foodDraft.servings + "인분을 계획에 담았어요.");
+  };
   route();
 })();
